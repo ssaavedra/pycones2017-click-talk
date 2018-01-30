@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>CLIs on a Click</title>
+<meta name="author" content="(Santiago Saavedra)"/>
+<style type="text/css">
+.underline { text-decoration: underline; }
+</style>
+<link rel="stylesheet" href="./reveal.js/css/reveal.css"/>
+
+<link rel="stylesheet" href="./reveal.js/css/theme/../../../ansible-talk/css/os-theme.css" id="theme"/>
+
+<link rel="stylesheet" href="./reveal.js/lib/css/zenburn.css"/>
+<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+<script>
+    if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = './reveal.js/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+    }
+</script>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<section class="intro" id="sec-title-slide"><h1 class="title">CLIs on a Click</h1><h2 class="author">Santiago Saavedra</h2><p class="date">PyConES 2017</p>
+</section>
+<section>
+<section class="green" id="slide-org4ad0686">
+<h1 id="org4ad0686">Disclaimer</h1>
+<blockquote>
+<p>
+Show me the code.
+</p>
+
+<p>
+&#x2013; Linus Torvalds
+</p>
+</blockquote>
+
+</section>
+</section>
+<section>
+<section class="green" id="slide-org7d9a1bf">
+<h1 id="org7d9a1bf">What is Click</h1>
+<p>
+<u>C</u>ommand-<u>L</u>ine <u>I</u>nterface <u>C</u>reation <u>K</u>it
+</p>
+
+</section>
+<section class="white" id="slide-orgcf84813">
+<h2 id="orgcf84813">Why Click</h2>
+<ul>
+<li>Nestable and composable</li>
+<li>Help page generation</li>
+<li>Runtime command lazy-loading</li>
+<li>UNIX conventions by default</li>
+<li>Ability to load envvars</li>
+<li>Python 2 and 3</li>
+<li>File management already available</li>
+<li>So many helpers</li>
+
+</ul>
+
+</section>
+<section class="white" id="slide-org1802bfe">
+<h3 id="org1802bfe">How about argparse?</h3>
+<ul>
+<li>Argparse has builtin magic to decide on arguments vs options</li>
+<li>argparse does not support disabling of interspersed elements</li>
+
+</ul>
+
+
+</section>
+</section>
+<section>
+<section class="green" id="slide-orgff27d71">
+<h2 id="orgff27d71">Example</h2>
+<p>
+We need a way to run the library functions.
+</p>
+
+<p>
+How do we expose a function as a CLI?
+</p>
+
+</section>
+<section class="white" id="slide-org07b8b78">
+<h3 id="org07b8b78">Try 1</h3>
+<div class="org-src-container">
+
+<pre><code class="python" >if __name__ == '__main__':
+    my_frontend_function()
+</code></pre>
+</div>
+
+<div class="fragment" class="org-src-container">
+
+<pre><code class="python" >if __name__ == '__main__':
+    import sys
+    kwargs = parse_args(sys.argv)
+    my_frontend_function(**kwargs)
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-orgbc25d91">
+<h3 id="orgbc25d91">But we also want environment variables&#x2026;</h3>
+<div class="org-src-container">
+
+<pre><code class="python" >if __name__ == '__main__':
+    import sys
+    kwargs = parse_args_and_environ(sys.argv, sys.environ)
+    my_frontend_function(**kwargs)
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-org811fe13">
+<h3 id="org811fe13">Caveat: only one function</h3>
+<p>
+How to execute different functions depending on the actual command?
+</p>
+
+<p>
+E.g., <code>mytool &lt;start|stop|status|list_plugins&gt;</code>
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="python" >if __name__ == '__main__':
+    import sys
+    cmd, kwargs = ...
+    if cmd == 'start':
+	frontend_start(kwargs)
+    elif cmd == 'list_plugins':
+	frontend_list_plugins(kwargs)
+    else:
+	print('Command not understood: %s' % cmd)
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-orgba53bcc">
+<h3 id="orgba53bcc">WRONG<br />Use proper software engineering anyway</h3>
+<div class="org-src-container">
+
+<pre><code class="python" >commands = {
+    'start': frontend_start,
+    'list_plugins': frontend_list_plugins,
+}
+
+if __name__  == '__main__':
+    cmd, kwargs = ...
+    if cmd in commands:
+	commands[cmd](kwargs)
+    else:
+	print(_('Command not understood: %s') % cmd)
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-org70160a9">
+<h3 id="org70160a9">Gets complicated</h3>
+<p>
+<code>parse_args_and_environment</code> may now be longer than the whole program
+anyway.
+</p>
+
+<p>
+Reduce complexity.
+</p>
+
+</section>
+</section>
+<section>
+<section class="green" id="slide-org8619455">
+<h2 id="org8619455">Click</h2>
+</section>
+<section class="white" id="slide-org9933088">
+<h3 id="org9933088">What is it?</h3>
+<ul>
+<li>Decorators (lots of them)</li>
+<li>Some helper functions for I/O</li>
+<li>Progress bars!</li>
+<li>Routes groups, commands and subcommands</li>
+<li>Automatic <code>--help</code> from decorators</li>
+<li>Automatic <code>--version</code> (needs to be enabled)</li>
+
+</ul>
+
+</section>
+<section class="white" id="slide-org6aee09c">
+<h3 id="org6aee09c">Hello, Click</h3>
+<div class="org-src-container">
+
+<pre><code class="python" >import click
+
+@click.command()
+def cli():
+    click.echo('This is a simple program created with Click.')
+
+if __name__ == '__main__':
+    cli()
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="bash" >% python 01.py --help
+Usage: 01.py [OPTIONS]
+
+Options:
+  --help  Show this message and exit.
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-orgc76951d">
+<h3 id="orgc76951d">Invalid options are invalid</h3>
+<div class="org-src-container">
+
+<pre><code class="bash" >% python 01.py hello 
+Usage: 01.py [OPTIONS]
+
+Error: Got unexpected extra argument (hello)
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-org5bde0ef">
+<h3 id="org5bde0ef">Let's add one</h3>
+<div class="org-src-container">
+
+<pre><code class="python" data-noescape>import click
+
+@click.command()
+<mark>@click.option('--name', '-n',
+	      default='world',
+	      help='The name you want to greet')</mark>
+def cli(<mark>name</mark>):
+    click.echo('Hello, %s' % name)
+
+if __name__ == '__main__':
+    cli()
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-org94c05f1">
+<h3 id="org94c05f1">Adheres to most used conventions</h3>
+<div class="org-src-container">
+
+<pre><code class="bash" >% python 02.py --name PyConES!
+Hello, PyConES!
+
+% python 02.py --name=PyConES!
+Hello, PyConES!
+
+% python 02.py -nPyConES!
+Hello, PyConES!
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="bash" >% python 02.py --name    
+Error: --name option requires an argument
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-orgf06d28b">
+<h3 id="orgf06d28b">Why use click.echo?</h3>
+
+<blockquote>
+<p>
+Prints a message plus a newline to the given file or stdout.  On
+first sight, this looks like the print function, but it has improved
+support for handling Unicode and binary data that does not fail no
+matter how badly configured the system is.
+</p>
+
+<p>
+Primarily it means that you can print binary data as well as Unicode
+data on both 2.x and 3.x to the given file in the most appropriate way
+possible.  This is a very carefree function as in that it will try its
+best to not fail.  As of Click 6.0 this includes support for unicode
+output on the Windows console.
+</p>
+
+<p>
+In addition to that, if `colorama`_ is installed, the echo function will
+also support clever handling of ANSI codes.  Essentially it will then
+do the following:
+</p>
+
+<ul>
+<li>add transparent handling of ANSI color codes on Windows.</li>
+<li>hide ANSI codes automatically if the destination file is not a
+terminal.</li>
+
+</ul>
+
+<p>
+&#x2013; Excerpt of doc(click.echo)
+</p>
+</blockquote>
+
+</section>
+<section class="white" id="slide-org300913b">
+<h3 id="org300913b">click.echo, tl;dr:</h3>
+<ul>
+<li>Strips ANSI colors when the output is not a terminal (e.g., <code>&gt;myfile.log</code>)</li>
+<li>Reformats ANSI colors for Windows</li>
+<li>Works on wrong LOCALE/LC<sub>*</sub></li>
+<li>Supports writing both bytes and str</li>
+<li>On both, Python 2 and Python 3</li>
+
+</ul>
+
+</section>
+<section class="white" id="slide-org6d5c5bc">
+<h3 id="org6d5c5bc">Nesting commands</h3>
+<div class="org-src-container">
+
+<pre><code class="python" >import click
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+def initdb():
+    click.echo('Initialized the database')
+
+@cli.command()
+def dropdb():
+    click.echo('Dropped the database')
+
+if __name__ == '__main__':
+    cli()
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-orgcc88021">
+<h3 id="orgcc88021">Usage of commands</h3>
+<div class="org-src-container">
+
+<pre><code class="bash" > % python 03.py       
+Usage: 03.py [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  dropdb
+  initdb
+
+ % python 03.py initdb
+Initialized the database
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-org0b5341c">
+<h3 id="org0b5341c">Can integrate with Setuptools</h3>
+<ul>
+<li>Not here due to space constraints</li>
+<li>PLEASE READ THAT</li>
+<li>Creates Windows bat scripts for your tools</li>
+<li>Creates sh wrappers on UNIX too: can use outside the virtualenv</li>
+
+</ul>
+
+<p>
+Briefly,
+</p>
+
+<div class="org-src-container">
+
+<pre><code class="python" >from setuptools import setup
+
+setup(
+    name='script',
+    version='0.1',
+    install_requires=['Click'],
+    entry_points='''
+	[console_scripts]
+	yourscript=yourscript:cli
+    ''',
+)
+</code></pre>
+</div>
+
+</section>
+<section class="white" id="slide-orgebd52e2">
+<h3 id="orgebd52e2">Arguments v. options</h3>
+<ul>
+<li>Arguments are more constrained</li>
+<li>Can have arbitrary number of them</li>
+<li>Are not auto-documented in <code>--help</code></li>
+<li>Values cannot be pulled from os.environ</li>
+<li>Cannot act as flags</li>
+
+</ul>
+
+</section>
+<section class="white" id="slide-orge875e0c">
+<h3 id="orge875e0c">Argument types</h3>
+<ul>
+<li>str, int, float, boola</li>
+<li>click.UUID</li>
+<li>click.File (returns a open file descriptor. can be stdin/stdout by using <code>-</code>)</li>
+<li>click.Path (returns a string)</li>
+<li>click.Choice</li>
+<li>click.IntRange(min,max,clamp)</li>
+<li>Any <code>class NewParameter(click.ParamType)</code></li>
+
+</ul>
+
+<p>
+Non-conforming args are handled by Click
+</p>
+
+</section>
+<section class="white" id="slide-orge735c07">
+<h3 id="orge735c07">Environment variables</h3>
+<div class="org-src-container">
+
+<pre><code class="python" >@click.command()
+@click.option('--username')
+def greet(username):
+    click.echo('Hello %s!' % username)
+
+if __name__ == '__main__':
+    greet(auto_envvar_prefix='GREETER')
+</code></pre>
+</div>
+
+<div class="org-src-container">
+
+<pre><code class="bash" >% export GREETER_USERNAME=john
+% greet
+Hello john!
+</code></pre>
+</div>
+
+
+
+</section>
+</section>
+<section>
+  <section class="green">
+    <h1>More utilities</h1>
+  </section>
+
+  <section class="white">
+    <h2>Pagination</h2>
+    <p>You can directly paginate results on a terminal.</p>
+
+    <pre><code class="python" data-trim>
+@click.command()
+def less():
+    click.echo_via_pager('\n'.join(['Line %d' % idx
+                                    for idx in range(200)]))
+    </code></pre>
+  </section>
+
+  <section class="white">
+    <h2>Launching an outside editor</h2>
+    <pre><code class="python" data-trim>
+import click
+
+def get_commit_message():
+    MARKER = '# Everything below is ignored\n'
+    message = click.edit('\n\n' + MARKER)
+    if message is not None:
+        return message.split(MARKER, 1)[0].rstrip('\n')
+    </code></pre>
+
+    
+    <pre><code class="python" data-trim>
+	click.edit(filename='/etc/passwd')
+    </code></pre>
+  </section>
+
+  <section class="white">
+    <h2>Showing progress bars while doing iterative stuff</h2>
+
+    <pre><code class="python" data-trim>
+with click.progressbar(iterable) as pb_iterable:
+    for item in pb_iterable:
+        yield do_stuff_with_item(item)
+    </code></pre>
+
+    This uses a contextmanager with <code>__enter__()</code> and <code>__exit__()</code>
+  </section>
+
+  <section class="white">
+    <h2>Intelligent file opening</h2>
+    <ul>
+      <li>Handles <code><mark>-</mark></code> as stdin/stdout (depending on mode)</li>
+      <li>The contextmanager does not close stdin/stdout</li>
+    </ul>
+    <br /><br />
+    <pre class="fragment"><code class="python" data-trim>
+with click.open_file(filename, 'w') as f:
+    f.write('Hello, World\n')
+    </code></pre>
+
+  </section>
+
+  <section class="white">
+    <h2>More?</h2>
+    <ul>
+      <li>Launching other apps and utilities</li>
+      <li>Requiring interaction to continue</li>
+    </ul>
+  </section>
+</section>
+
+<section class="clear">
+  <h1>Q&amp;A</h1>
+  <img class="logo" src="images/logo-home.png">
+</section>
+
+<section class="intro">
+  <img class="logo" src="images/logo-home.png">
+  <h1>Thanks!</h1>
+  <div class="date">PyconES 2017</div>
+</section>
+</div>
+</div>
+<script src="./reveal.js/lib/js/head.min.js"></script>
+<script src="./reveal.js/js/reveal.js"></script>
+
+<script>
+// Full list of configuration options available here:
+// https://github.com/hakimel/reveal.js#configuration
+Reveal.initialize({
+
+controls: false,
+progress: true,
+history: true,
+center: true,
+slideNumber: 'c',
+rollingLinks: false,
+keyboard: true,
+overview: true,
+
+theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+transition: Reveal.getQueryHash().transition || 'fade', // default/cube/page/concave/zoom/linear/fade/none
+transitionSpeed: 'default',
+multiplex: {
+    secret: '', // null if client
+    id: '', // id, obtained from socket.io server
+    url: '' // Location of socket.io server
+},
+
+// Optional libraries used to extend on reveal.js
+dependencies: [
+ { src: './reveal.js/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }]
+});
+</script>
+</body>
+</html>

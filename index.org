@@ -1,0 +1,333 @@
+* Slide Options                                                    :noexport:
+# ======= Appear in cover-slide ====================
+#+TITLE: CLIs on a Click
+#+SUBTITLE: Comfortable creating a CLI from Python
+#+COMPANY: OpenShine
+#+AUTHOR: Santiago Saavedra
+
+# ======= Appear in thank-you-slide ================
+#+GOOGLE_PLUS: https://plus.google.com/+SantiagoSaavedra
+#+WWW: https://ssaavedra.eu
+#+GITHUB: http://github.com/ssaavedra
+#+TWITTER: ssice
+
+# ======= Appear under each slide ==================
+#+ICON: images/kubernetes-logo.svg
+#+FAVICON: images/openshine-icon.svg
+#+HASHTAG: #PyConES2017
+
+## ======= Google Analytics =========================
+##+ANALYTICS: UA-000000000-0
+
+# ======= Org settings =========================
+#+EXCLUDE_TAGS: noexport
+#+OPTIONS: toc:nil num:nil
+#+REVEAL_PLUGINS: (highlight)
+#+REVEAL_THEME: ../../../ansible-talk/css/os-theme
+
+
+* Disclaimer
+  :PROPERTIES:
+  :ATTR_HTML: class: intro
+  :END:
+  #+BEGIN_QUOTE
+  Show me the code.
+
+  -- Linus Torvalds
+  #+END_QUOTE
+
+* What is Click
+  <u>C</u>ommand-<u>L</u>ine <u>I</u>nterface <u>C</u>reation <u>K</u>it
+
+** Why Click
+   - Nestable and composable
+   - Help page generation
+   - Runtime command lazy-loading
+   - UNIX conventions by default
+   - Ability to load envvars
+   - Python 2 and 3
+   - File management already available
+   - So many helpers
+
+** How about argparse?
+   - Argparse has builtin magic to decide on arguments vs options
+   - argparse does not support disabling of interspersed elements
+
+
+* Example
+   We need a way to run the library functions.
+
+   How do we expose a function as a CLI?
+
+** Try 1
+
+   #+BEGIN_SRC python
+     if __name__ == '__main__':
+	 my_frontend_function()
+   #+END_SRC
+
+   #+BEGIN_SRC python
+     if __name__ == '__main__':
+	 import sys
+	 kwargs = parse_args(sys.argv)
+	 my_frontend_function(**kwargs)
+   #+END_SRC
+
+** But we also want environment variables...
+   #+BEGIN_SRC python
+     if __name__ == '__main__':
+	 import sys
+	 kwargs = parse_args_and_environ(sys.argv, sys.environ)
+	 my_frontend_function(**kwargs)
+   #+END_SRC
+
+** Caveat: only one function
+   How to execute different functions depending on the actual command?
+
+   E.g., ~mytool <start|stop|status|list_plugins>~
+
+   #+BEGIN_SRC python
+     if __name__ == '__main__':
+	 import sys
+	 cmd, kwargs = ...
+	 if cmd == 'start':
+	     frontend_start(kwargs)
+	 elif cmd == 'list_plugins':
+	     frontend_list_plugins(kwargs)
+	 else:
+	     print('Command not understood: %s' % cmd)
+   #+END_SRC
+
+** WRONG: Use proper software engineering anyway
+
+   #+BEGIN_SRC python
+     commands = {
+	 'start': frontend_start,
+	 'list_plugins': frontend_list_plugins,
+     }
+
+     if __name__  == '__main__':
+	 cmd, kwargs = ...
+	 if cmd in commands:
+	     commands[cmd](kwargs)
+	 else:
+	     print(_('Command not understood: %s') % cmd)
+   #+END_SRC
+
+** Gets complicated
+   ~parse_args_and_environment~ may now be longer than the whole program
+   anyway.
+
+   Reduce complexity.
+
+* Click
+  :PROPERTIES:
+  :SLIDE:    segue dark quote
+  :ASIDE:    right bottom
+  :ARTICLE:  flexbox vleft auto-fadein
+  :END:
+
+** What is it?
+   - Decorators (lots of them)
+   - Some helper functions for I/O
+   - Progress bars!
+   - Routes groups, commands and subcommands
+   - Automatic ~--help~ from decorators
+   - Automatic ~--version~ (needs to be enabled)
+
+** Hello, Click
+   #+BEGIN_SRC python
+     import click
+
+     @click.command()
+     def cli():
+	 click.echo('This is a simple program created with Click.')
+
+     if __name__ == '__main__':
+	 cli()
+   #+END_SRC
+
+   #+BEGIN_SRC bash
+     % python 01.py --help
+     Usage: 01.py [OPTIONS]
+
+     Options:
+       --help  Show this message and exit.
+   #+END_SRC
+
+** Invalid options are invalid
+   #+BEGIN_SRC bash
+     % python 01.py hello 
+     Usage: 01.py [OPTIONS]
+
+     Error: Got unexpected extra argument (hello)
+   #+END_SRC
+
+** Let's add one
+   #+BEGIN_SRC python
+     import click
+
+     @click.command()
+     <b>@click.option('--name', '-n',
+		   default='world',
+		   help='The name you want to greet')</b>
+     def cli(name):
+	 click.echo('Hello, %s' % name)
+
+     if __name__ == '__main__':
+	 cli()
+   #+END_SRC
+
+** Adheres to most used conventions
+   #+BEGIN_SRC bash
+     % python 02.py --name PyConES!
+     Hello, PyConES!
+
+     % python 02.py --name=PyConES!
+     Hello, PyConES!
+
+     % python 02.py -nPyConES!
+     Hello, PyConES!
+   #+END_SRC
+
+   #+BEGIN_SRC bash
+     % python 02.py --name    
+     Error: --name option requires an argument
+   #+END_SRC
+
+** Why use click.echo?
+   #+BEGIN_QUOTE
+   Prints a message plus a newline to the given file or stdout.  On
+   first sight, this looks like the print function, but it has improved
+   support for handling Unicode and binary data that does not fail no
+   matter how badly configured the system is.
+
+   Primarily it means that you can print binary data as well as Unicode
+   data on both 2.x and 3.x to the given file in the most appropriate way
+   possible.  This is a very carefree function as in that it will try its
+   best to not fail.  As of Click 6.0 this includes support for unicode
+   output on the Windows console.
+
+   In addition to that, if `colorama`_ is installed, the echo function will
+   also support clever handling of ANSI codes.  Essentially it will then
+   do the following:
+
+    -   add transparent handling of ANSI color codes on Windows.
+    -   hide ANSI codes automatically if the destination file is not a
+        terminal.
+
+   -- Excerpt of doc(click.echo)
+   #+END_QUOTE
+
+** click.echo, tl;dr:
+   - Strips ANSI colors when the output is not a terminal (e.g., ~>myfile.log~)
+   - Reformats ANSI colors for Windows
+   - Works on wrong LOCALE/LC_*
+   - Supports writing both bytes and str
+   - On both, Python 2 and Python 3
+
+** Nesting commands
+   #+BEGIN_SRC python
+     import click
+
+     @click.group()
+     def cli():
+	 pass
+
+     @cli.command()
+     def initdb():
+	 click.echo('Initialized the database')
+
+     @cli.command()
+     def dropdb():
+	 click.echo('Dropped the database')
+
+     if __name__ == '__main__':
+	 cli()
+   #+END_SRC
+
+** Usage of commands
+
+   #+BEGIN_SRC bash
+      % python 03.py       
+     Usage: 03.py [OPTIONS] COMMAND [ARGS]...
+
+     Options:
+       --help  Show this message and exit.
+
+     Commands:
+       dropdb
+       initdb
+
+      % python 03.py initdb
+     Initialized the database
+   #+END_SRC
+
+** Can integrate with Setuptools
+   - Not here due to space constraints
+   - PLEASE READ THAT
+   - Creates Windows bat scripts for your tools
+   - Creates sh wrappers on UNIX too: can use outside the virtualenv
+
+   Briefly,
+
+   #+BEGIN_SRC python
+     from setuptools import setup
+
+     setup(
+	 name='script',
+	 version='0.1',
+	 install_requires=['Click'],
+	 entry_points='''
+	     [console_scripts]
+	     yourscript=yourscript:cli
+	 ''',
+     )
+   #+END_SRC
+
+** Arguments v. options
+   - Arguments are more constrained
+   - Can have arbitrary number of them
+   - Are not auto-documented in ~--help~
+   - Values cannot be pulled from os.environ
+   - Cannot act as flags
+
+** Argument types
+   - str, int, float, boola
+   - click.UUID
+   - click.File (returns a open file descriptor. can be stdin/stdout by using ~-~)
+   - click.Path (returns a string)
+   - click.Choice
+   - click.IntRange(min,max,clamp)
+   - Any ~class NewParameter(click.ParamType)~
+
+   Non-conforming args are handled by Click
+
+** Environment variables
+   #+BEGIN_SRC python
+     @click.command()
+     @click.option('--username')
+     def greet(username):
+	 click.echo('Hello %s!' % username)
+
+     if __name__ == '__main__':
+	 greet(auto_envvar_prefix='GREETER')
+   #+END_SRC
+
+   #+BEGIN_SRC bash
+     % export GREETER_USERNAME=john
+     % greet
+     Hello john!
+   #+END_SRC
+
+# TODO: Options
+
+
+
+** Questions?
+   :PROPERTIES:
+   :SLIDE:    thank-you-slide segue
+   :ASIDE:    right
+   :ARTICLE:  flexbox vleft auto-fadein
+   :END:
+

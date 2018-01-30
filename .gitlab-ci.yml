@@ -1,0 +1,12 @@
+image: node:6
+
+pages:
+  stage: deploy
+  script:
+    - mkdir public
+    - cp -r images js index.html theme slide_config.js public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
